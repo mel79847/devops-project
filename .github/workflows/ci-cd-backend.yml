@@ -1,0 +1,51 @@
+﻿name: CI/CD Backend
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: npm install
+
+      - name: Run tests (placeholder)
+        working-directory: ./backend
+        run: |
+          echo "No hay tests aún, pero aquí irían :)"
+          exit 0
+
+      - name: Deploy backend to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.BACKEND_HOST }}
+          username: ${{ secrets.BACKEND_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            rm -rf ~/backend-app || true
+            mkdir -p ~/backend-app
+
+            rm -rf ~/repo-devops || true
+            git clone https://github.com/mel79847/devops-project.git ~/repo-devops
+
+            cp -r ~/repo-devops/backend/* ~/backend-app/
+
+            cd ~/backend-app
+
+            npm install
+
+            pkill -f "node index.js" || true
+
+            nohup npm start > app.log 2>&1 &
