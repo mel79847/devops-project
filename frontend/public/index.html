@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DevOps Project - Message Board</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+                sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+            padding: 28px;
+        }
+        h1 {
+            color: #4c51bf;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        p.subtitle {
+            text-align: center;
+            color: #4a5568;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .status {
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .status.ok {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        .status.error {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+            font-size: 15px;
+        }
+        button {
+            padding: 12px 18px;
+            border-radius: 8px;
+            border: none;
+            background: #667eea;
+            color: #ffffff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        button:hover {
+            background: #5a67d8;
+        }
+        .messages {
+            max-height: 400px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .message {
+            background: #f7fafc;
+            border-left: 4px solid #667eea;
+            padding: 10px 12px;
+            border-radius: 8px;
+        }
+        .message-time {
+            font-size: 11px;
+            color: #718096;
+            margin-top: 4px;
+        }
+        .empty {
+            text-align: center;
+            color: #a0aec0;
+            font-size: 14px;
+            padding: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DevOps Message Board</h1>
+        <p class="subtitle">Pequeña app de mensajes para demostrar CI/CD, backend y base de datos.</p>
+
+        <div id="status" class="status">Comprobando conexión con el backend...</div>
+
+        <div class="input-group">
+            <input
+                type="text"
+                id="messageInput"
+                placeholder="Escribir un mensaje para guardar en la base de datos..."
+            />
+            <button type="button" onclick="sendMessage()">Enviar</button>
+        </div>
+
+        <div id="messages" class="messages"></div>
+    </div>
+
+    <script>
+        const BACKEND_URL = "http://3.238.249.159:3000";
+
+        async function checkHealth() {
+            const statusEl = document.getElementById("status");
+            try {
+                const res = await fetch(`${BACKEND_URL}/health`);
+                if (!res.ok) throw new Error("Health check failed");
+                const data = await res.json();
+                statusEl.className = "status ok";
+                statusEl.textContent = "Conectado al backend (" + data.status + ")";
+                return true;
+            } catch (err) {
+                statusEl.className = "status error";
+                statusEl.textContent = "No se puede conectar al backend";
+                return false;
+            }
+        }
+
+        async function loadMessages() {
+            const container = document.getElementById("messages");
+            container.innerHTML = "";
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/messages`);
+                const data = await res.json();
+
+                if (!data.success || !data.data || data.data.length === 0) {
+                    container.innerHTML =
+                        '<div class="empty">No hay mensajes todavía.</div>';
+                    return;
+                }
+
+                data.data.forEach((msg) => {
+                    const div = document.createElement("div");
+                    div.className = "message";
+                    const content = document.createElement("div");
+                    content.textContent = msg.content;
+                    const time = document.createElement("div");
+                    time.className = "message-time";
+                    time.textContent = new Date(msg.created_at).toLocaleString();
+                    div.appendChild(content);
+                    div.appendChild(time);
+                    container.appendChild(div);
+                });
+            } catch (err) {
+                container.innerHTML =
+                    '<div class="empty">Error cargando mensajes.</div>';
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById("messageInput");
+            const content = input.value.trim();
+            if (!content) return;
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/messages`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ content }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                    input.value = "";
+                    await loadMessages();
+                } else {
+                    alert("No se pudo guardar el mensaje");
+                }
+            } catch (err) {
+                alert("Error de conexión con el backend");
+            }
+        }
+
+        async function init() {
+            const ok = await checkHealth();
+            if (ok) {
+                await loadMessages();
+                setInterval(loadMessages, 5000);
+            }
+        }
+
+        document
+            .getElementById("messageInput")
+            .addEventListener("keypress", (e) => {
+                if (e.key === "Enter") sendMessage();
+            });
+
+        init();
+    </script>
+</body>
+</html>

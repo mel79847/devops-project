@@ -1,0 +1,9 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "description": "Simple static frontend for DevOps CI/CD demo",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "devDependencies": {}
+}
