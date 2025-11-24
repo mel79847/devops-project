@@ -1,27 +1,20 @@
-# DevOps Project – Backend CI/CD
 
-Este repositorio corresponde al desarrollo del pipeline CI/CD para el servicio **Backend** dentro del proyecto del primer parcial de DevOps.  
-El objetivo principal es automatizar la entrega del backend hacia una instancia EC2 en AWS mediante GitHub Actions.  
-La documentación está escrita en tercera persona y sin el uso de emojis, como se solicitó.
+# DevOps Project – CI/CD Backend y Frontend
+
+Este documento describe el proceso completo de integración y despliegue continuo implementado para el **Backend** y el **Frontend** del proyecto DevOps del primer parcial.  
+La documentación está escrita en tercera persona y organizada en secciones claras que reflejan los pasos realizados.
 
 ---
 
 ## 1. Contexto General del Proyecto
 
-El proyecto DevOps se estructura en tres servidores:
+El proyecto está basado en una arquitectura distribuida con tres servidores independientes:
 
-- **Base de datos (PostgreSQL)**  
-- **Backend (Node.js + Express)**  
-- **Frontend (Nginx)**  
+- **Servidor de Base de Datos (PostgreSQL)**  
+- **Servidor Backend (Node.js + Express)**  
+- **Servidor Frontend (Nginx)**  
 
-La responsabilidad del backend consiste en implementar un servicio básico en Node.js, subirlo al repositorio y configurar un pipeline CI/CD funcional que despliegue automáticamente cada actualización hacia la máquina EC2 correspondiente.
-
-Este README describe:
-
-1. La estructura del proyecto.  
-2. Los pasos realizados para implementar el backend.  
-3. El pipeline CI/CD utilizado.  
-4. El funcionamiento verificado desde GitHub Actions y AWS EC2.  
+El objetivo fue implementar pipelines CI/CD separados para backend y frontend, ambos mediante GitHub Actions, asegurando que cualquier cambio enviado a la rama `main` se despliegue automáticamente en sus respectivas máquinas EC2 en AWS.
 
 ---
 
@@ -30,181 +23,153 @@ Este README describe:
 ```
 devops-project/
 │
-├── backend/              # Código fuente del servicio Backend
-│   ├── index.js          # API con un endpoint /health
+├── backend/                     # Servicio Backend (Node.js)
+│   ├── index.js
 │   ├── package.json
 │   └── package-lock.json
 │
-├── frontend/             # Pendiente para el despliegue del Frontend
+├── frontend/                    # Aplicación Frontend (estática)
+│   ├── public/
+│   │   └── index.html
+│   ├── package.json
+│   └── test.js
 │
-├── scripts/              # Scripts opcionales del proyecto
+├── scripts/
 │
-├── docs/                 # Documentación adicional
+├── docs/
 │
 └── .github/
     └── workflows/
-        └── ci-cd-backend.yml   # Pipeline CI/CD para despliegue automático
+        ├── ci-cd-backend.yml
+        └── ci-cd-frontend.yml
 ```
 
 ---
 
-## 3. Implementación del Backend en Node.js
+# 3. Implementación del Backend
 
-El servicio backend consiste en una API mínima creada con Express que expone el endpoint:
+El backend consiste en un servicio simple construido con **Express**, expuesto en el puerto 3000.  
+Incluye un endpoint de verificación:
 
 ```
 GET /health
 ```
 
-El endpoint devuelve un JSON indicando que el servicio está operativo.  
-Este archivo se encuentra en `backend/index.js` y es el punto de entrada definido en el script `npm start`.
-
-Contenido actual del backend:
-
-```js
-const express = require('express');
-const app = express();
-
-const port = process.env.PORT || 3000;
-
-app.get('/health', (req, res) => {
-  res.json({
-    status: "OK",
-    message: "Backend funcionando en AWS EC2",
-    timestamp: new Date().toISOString(),
-    service: "DevOps Backend API"
-  });
-});
-
-app.listen(port, () => {
-  console.log(`Servidor escuchando en el puerto ${port}`);
-});
-```
-
-Este archivo fue probado tanto localmente como dentro de la instancia EC2.
+Este endpoint devuelve un JSON indicando que el servicio está operativo.  
+El archivo principal se encuentra en `backend/index.js`.
 
 ---
 
-## 4. Pipeline CI/CD – GitHub Actions
+# 4. Pipeline CI/CD del Backend
 
-Se implementó un workflow completo en:
+El pipeline realiza:
+
+1. Instalación de Node.js.  
+2. Verificación de dependencias.  
+3. Conexión SSH a la EC2 del backend.  
+4. Copia del código actualizado.  
+5. Instalación de dependencias dentro de la EC2.  
+6. Reinicio del servicio backend mediante `nohup`.
+
+Se ubica en:
 
 ```
 .github/workflows/ci-cd-backend.yml
 ```
 
-El pipeline realiza las siguientes acciones:
+---
 
-1. Recibe un push hacia la rama `main`.  
-2. Instala Node.js en el runner de GitHub.  
-3. Ejecuta `npm install` para verificar que el build funciona.  
-4. Se conecta por SSH a la máquina EC2 asignada al backend.  
-5. Limpia la carpeta de despliegue.  
-6. Clona la última versión del repositorio.  
-7. Copia el contenido del backend hacia `~/backend-app/`.  
-8. Instala dependencias dentro de EC2.  
-9. Finaliza cualquier proceso previo de Node.js.  
-10. Inicia nuevamente el backend usando `nohup` para que quede corriendo en segundo plano.
+# 5. Implementación del Frontend
 
-Este procedimiento garantiza un despliegue automatizado y repetible.
+El frontend consiste en una página estática ubicada en:
+
+```
+frontend/public/index.html
+```
+
+La página permite:
+
+- Ver el estado del sistema  
+- Visualizar mensajes almacenados  
+- Publicar nuevos mensajes  
+- Ver estadísticas básicas del backend  
+
+El servidor frontend funciona sobre **Nginx** y se encuentra desplegado en una instancia EC2 distinta.
 
 ---
 
-## 5. Archivo del Pipeline CI/CD
+# 6. Pruebas del Frontend
 
-A continuación se presenta el contenido actualizado del workflow:
+Para cumplir con los requisitos del proyecto se creó:
 
-```yaml
-name: CI/CD Backend
+```
+frontend/test.js
+```
 
-on:
-  push:
-    branches: [ "main" ]
+Esta prueba verifica:
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+- La existencia del archivo `index.html`
+- La presencia del texto esperado dentro del HTML
 
-    steps:
-      - name: Checkout del código
-        uses: actions/checkout@v3
+---
 
-      - name: Instalar Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: "18"
+# 7. Pipeline CI/CD del Frontend
 
-      - name: Instalar dependencias (build check)
-        run: |
-          cd backend
-          npm install
+El archivo se encuentra en:
 
-      - name: Desplegar en servidor EC2
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.BACKEND_HOST }}
-          username: ${{ secrets.BACKEND_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            rm -rf ~/backend-app || true
-            mkdir -p ~/backend-app
+```
+.github/workflows/ci-cd-frontend.yml
+```
 
-            rm -rf ~/repo-devops || true
-            git clone https://github.com/mel79847/devops-project.git ~/repo-devops
+Este pipeline:
 
-            cp -r ~/repo-devops/backend/* ~/backend-app/
+1. Ejecuta pruebas del frontend.  
+2. Se conecta por SSH a la máquina EC2.  
+3. Copia el contenido de `frontend/public/` a:
 
-            cd ~/backend-app
-            npm install
+```
+/var/www/html/
+```
 
-            pkill -f "node index.js" || true
-            nohup npm start > app.log 2>&1 &
+4. Recarga Nginx para aplicar los cambios.  
+5. Utiliza triggers basados en rutas para evitar que se ejecute cuando cambian archivos del backend.
+
+### Configuración adicional en la EC2:
+
+```bash
+sudo chown -R ubuntu:ubuntu /var/www/html
+sudo chmod -R 755 /var/www/html
 ```
 
 ---
 
-## 6. Verificación del Funcionamiento en AWS EC2
+# 8. Verificación del Despliegue
 
-Una vez ejecutado el pipeline, el backend queda operativo en la máquina EC2 asignada.  
-La verificación se realizó accediendo desde el navegador al endpoint público:
+### Backend:
 
 ```
 http://3.238.249.159:3000/health
 ```
 
-La respuesta confirmada es:
+Devuelve un JSON confirmando el estado del servicio.
+
+### Frontend:
 
 ```
-{
-  "status": "OK",
-  "message": "Backend funcionando en AWS EC2",
-  "timestamp": "...",
-  "service": "DevOps Backend API"
-}
+http://98.93.4.174
 ```
 
-Esto demuestra que:
-
-- El pipeline realizó el despliegue correctamente.
-- El backend arrancó sin errores.
-- El puerto 3000 está accesible desde Internet.
-- La automatización funciona para cualquier actualización futura del código.
+El sitio permite interactuar con el backend y visualizar información obtenida desde la base de datos.
 
 ---
 
-## 7. Estado Actual del Pipeline
+# 9. Estado de los Pipelines
 
-El pipeline CI/CD se encuentra completamente operativo.  
-Cada vez que se realiza un push hacia `main`, GitHub Actions ejecuta automáticamente el proceso de despliegue en AWS EC2.
+Ambos pipelines se encuentran configurados con triggers independientes:
 
-Este sistema ya cumple con todos los requisitos de la Parte 2 del proyecto.
+- `backend/**` → CI/CD Backend  
+- `frontend/**` → CI/CD Frontend  
+
+Esto asegura ejecuciones ordenadas y evita despliegues innecesarios.
 
 ---
-
-## 8. Conclusión
-
-El backend está implementado y desplegado correctamente mediante un pipeline automatizado en GitHub Actions.  
-La infraestructura, los archivos del proyecto, el servidor AWS y el workflow trabajan de forma conjunta para asegurar entregas continuas y consistentes.
-
-Este README resume de manera técnica y ordenada todo el proceso realizado.
-
