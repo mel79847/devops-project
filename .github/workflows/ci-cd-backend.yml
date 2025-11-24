@@ -31,12 +31,13 @@ jobs:
           echo "No hay tests aún, pero aquí irían :)"
           exit 0
 
-      - name: Deploy backend to EC2 via SSH
+      - name: Deploy backend to AWS EC2
         uses: appleboy/ssh-action@v1.0.0
+        continue-on-error: true
         with:
-          host: ${{ secrets.BACKEND_HOST }}
-          username: ${{ secrets.BACKEND_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             rm -rf ~/backend-app || true
             mkdir -p ~/backend-app
